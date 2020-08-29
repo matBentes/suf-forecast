@@ -31,7 +31,7 @@ jobs:
       - name: Run all tests
         run: yarn test
 
-      - shell:
+      - shell: bash
         if: github.ref == 'refs/heads/master'
         name: Create SSH deployment key
         env:
