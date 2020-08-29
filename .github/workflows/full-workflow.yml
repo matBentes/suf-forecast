@@ -39,5 +39,5 @@ jobs:
         run: ./scripts/deploy.sh
       
       - name: Deployment
-      if: github.ref == 'refs/heads/master'
+      if: github.ref = 'refs/heads/master'
       run: git remote add umbler ssh://git@kamino.deploy.umbler.com:9922/e2yr5ymk/matbentes-forecast-surf-com.git && git push umbler master
