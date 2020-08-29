@@ -1,34 +1,43 @@
-name: Complete Workflow 
+name: Complete Workflow
 
-on: ['push']
+on: ["push"]
 
-jobs: 
-
-  build: 
-
+jobs:
+  build:
     runs-on: ubuntu-latest
 
     strategy:
-      matrix: 
+      matrix:
         node-version: [12.x]
         mongodb-version: [4.2]
-    
-    steps: 
-    - uses: actions/checkout@v2
-    - run: git fetch --prune --unshallow
 
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
-      with: 
-        node-version: ${{ matrix.node-version }}
+    steps:
+      - uses: actions/checkout@v2
+      - run: git fetch --prune --unshallow
 
-    - name: Start MongoDB 
-      uses: supercharge/mongodb-github-action@1.1.0
-      with: 
-        mongodb-version: ${{ matrix.mongodb.version }}
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
 
-    - name: Install dependencies 
-      run: yarn --frozen-lockfile
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@1.1.0
+        with:
+          mongodb-version: ${{ matrix.mongodb.version }}
 
-    - name: Run all tests
-      run: yarn test 
+      - name: Install dependencies
+        run: yarn --frozen-lockfile
+
+      - name: Run all tests
+        run: yarn test
+
+      - shell:
+        if: github.ref == 'refs/heads/master'
+        name: Create SSH deployment key
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: ./scripts/deploy.sh
+      
+      - name: Deployment
+      if: github.ref == 'refs/heads/master'
+      run: git remote add umbler ssh://git@kamino.deploy.umbler.com:9922/e2yr5ymk/matbentes-forecast-surf-com.git && git push umbler master
