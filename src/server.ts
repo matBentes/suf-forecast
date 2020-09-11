@@ -7,6 +7,13 @@ import * as database from '@src/database';
 import { BeachesController } from './controllers/beaches';
 import { UsersController } from './controllers/users';
 import logger from './logger';
+import expressPino from 'express-pino-logger';
+import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
+import { OpenApiValidator } from 'express-openapi-validator';
+import { OpenAPIV3 } from 'express-openapi-validator/dist/framework/types';
+import apiSchema from './api-schema.json';
+import { apiErrorValidator } from './api-error-validator';
 
 export class SetupServer extends Server {
   /*
@@ -25,11 +32,36 @@ export class SetupServer extends Server {
     this.setupExpress();
     this.setupControllers();
     await this.databaseSetup();
+    await this.docsSetup();
+    this.setupErrorHandlers();
   }
 
   private setupExpress(): void {
     this.app.use(bodyParser.json());
+    this.app.use(
+      expressPino({
+        logger,
+      })
+    );
+    this.app.use(
+      cors({
+        origin: '*',
+      })
+    );
     this.setupControllers();
+  }
+
+  private setupErrorHandlers(): void {
+    this.app.use(apiErrorValidator);
+  }
+
+  private async docsSetup(): Promise<void> {
+    this.app.use('/docs', swaggerUi.serve, swaggerUi.setup(apiSchema));
+    await new OpenApiValidator({
+      apiSpec: apiSchema as OpenAPIV3.Document,
+      validateRequests: true, //we do it
+      validateResponses: true,
+    }).install(this.app);
   }
 
   private setupControllers(): void {
@@ -57,7 +89,7 @@ export class SetupServer extends Server {
 
   public start(): void {
     this.app.listen(this.port, () => {
-      logger.info('Server listening of port: ', this.port);
+      logger.info(`Server listening of port: ${this.port}`);
     });
   }
 }

@@ -5,6 +5,9 @@
         "apiToken": "test-token"
       }
     },
+    "database": {
+      "mongourl": "mongodb://localhost:27017/surf-forecast-test"
+    },
     "logger": {
       "enabled": false
     }

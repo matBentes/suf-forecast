@@ -12,6 +12,7 @@ describe('User functional tests', () => {
       };
 
       const response = await global.testRequest.post('/users').send(newUser);
+
       expect(response.status).toBe(201);
       expect(
         AuthService.comparePassword(newUser.password, response.body.password)
@@ -24,17 +25,18 @@ describe('User functional tests', () => {
       );
     });
 
-    it('should return 400 when there is a validation error', async () => {
+    it('Should return a validation error when a field is missing', async () => {
       const newUser = {
         email: 'jhon@mail.com',
         password: '1234',
       };
 
       const response = await global.testRequest.post('/users').send(newUser);
-      expect(response.status).toBe(422);
+      expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        code: 422,
-        error: 'User validation failed: name: Path `name` is required.',
+        code: 400,
+        error: 'Bad Request',
+        message: 'User validation failed: name: Path `name` is required.',
       });
     });
 
@@ -50,7 +52,9 @@ describe('User functional tests', () => {
       expect(response.status).toBe(409);
       expect(response.body).toEqual({
         code: 409,
-        error: 'User validation failed: email: already exists in the database',
+        error: 'Conflict',
+        message:
+          'User validation failed: email: already exists in the database',
       });
     });
   });
@@ -72,37 +76,77 @@ describe('User functional tests', () => {
         expect.objectContaining({ token: expect.any(String) })
       );
     });
-  });
 
-  it('should return UNAUTHORIZED if the user with the given email is not found', async () => {
-    const response = await global.testRequest
-      .post('/users/authenticate')
-      .send({ email: 'jhon@gmail.com', password: '1234' });
+    it('should return UNAUTHORIZED if the user with the given email is not found', async () => {
+      const response = await global.testRequest
+        .post('/users/authenticate')
+        .send({ email: 'jhon@gmail.com', password: '1234' });
 
-    expect(response.status).toBe(401);
+      expect(response.status).toBe(401);
 
-    expect(response.body).toEqual({
-      code: 401,
-      error: 'User not found',
+      expect(response.body).toEqual({
+        code: 401,
+        error: 'Unauthorized',
+        message: 'User not found',
+        description: 'Try verifying your email address.',
+      });
+    });
+
+    it('should return UNATHOURIZED if the user is found but the password does not match', async () => {
+      const newUser = {
+        name: 'Jhon Doe',
+        email: 'jhon@gmail.com',
+        password: '1234',
+      };
+
+      await new User(newUser).save();
+
+      const response = await global.testRequest
+        .post('/users/authenticate')
+        .send({ ...newUser, password: '4321' });
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({
+        code: 401,
+        error: 'Unauthorized',
+        message: 'Password does not match',
+      });
     });
   });
-  it('should return UNATHOURIZED if the user is found but the password does not match', async () => {
-    const newUser = {
-      name: 'Jhon Doe',
-      email: 'jhon@gmail.com',
-      password: '1234',
-    };
 
-    await new User(newUser).save();
+  describe('When getting user profile info', () => {
+    it(`should return the token's owner profile information`, async () => {
+      const newUser = {
+        name: 'Jhon Doe',
+        email: 'jhon@mail.com',
+        password: '1234',
+      };
 
-    const response = await global.testRequest
-      .post('/users/authenticate')
-      .send({ ...newUser, password: '4321' });
+      const user = await new User(newUser).save();
+      const token = AuthService.generateToken(user.toJSON());
+      const { body, status } = await global.testRequest
+        .get('/users/me')
+        .set({ 'x-access-token': token });
 
-    expect(response.status).toBe(401);
-    expect(response.body).toEqual({
-      code: 401,
-      error: 'Password does not match',
+      expect(status).toBe(200);
+      expect(body).toMatchObject(JSON.parse(JSON.stringify({ user })));
+    });
+
+    it(`should return not found, when the user is not found`, async () => {
+      const newUser = {
+        name: 'Jhon Doe',
+        email: 'jhon@mail.com',
+        password: '1234',
+      };
+
+      const user = await new User(newUser);
+      const token = AuthService.generateToken(user.toJSON());
+      const { body, status } = await global.testRequest
+        .get('/users/me')
+        .set({ 'x-access-token': token });
+
+      expect(status).toBe(404);
+      expect(body.message).toBe('User not found');
     });
   });
 });
